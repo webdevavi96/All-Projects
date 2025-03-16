@@ -33,7 +33,16 @@ updateDateTime();
 setInterval(updateDateTime, 1000);
 
 async function getNewWeather() {
-  let cityName = document.querySelector('#city_name').value.trim() || "Delhi";
+  let userInputCity = document.querySelector('#city_name').value.trim();
+  
+  // If user didn't enter a city, fetch location-based city asynchronously
+  let cityName = userInputCity || await apiFn.getUserLocation();
+
+  if (!cityName) {
+  // console.log("❌ No city detected, using default: Delhi");
+    return await apiFn.getUserLocation()
+  }
+
   const cityDetails = document.querySelector('.city_info');
   const currentTemp = document.querySelector('.currentTemp');
   const wCondition = document.querySelector('.weather_condition');
@@ -42,25 +51,31 @@ async function getNewWeather() {
   const weatherContainer = document.querySelector('.icon');
   const humidity = document.querySelector('.humidity');
   const pressure = document.querySelector('.pressure');
-  const radar = document.querySelector('.map-box')
+  const radar = document.querySelector('.map-box');
+
   try {
     const newWeatherData = await apiFn.getWeather(cityName);
-    cityDetails.innerHTML = `${newWeatherData.name}`;
+    if (!newWeatherData || newWeatherData.cod !== 200) {
+      throw new Error(`Weather data not found for ${cityName}`);
+    }
+
+    cityDetails.innerHTML = newWeatherData.name.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
     wCondition.innerHTML = `${newWeatherData.weather[0].main}`;
     aSpeed.innerHTML = `${newWeatherData.wind.speed}`;
     currentTemp.innerHTML = `${Math.round(newWeatherData.main.temp - 273.15)}`;
     currentFeel.innerHTML = `${Math.round(newWeatherData.main.feels_like - 273.15)}`;
-    weatherContainer.setAttribute('src', `https://openweathermap.org/img/wn/${newWeatherData.weather[0].icon}@2x.png`);
+    weatherContainer.setAttribute(
+      "src",
+      `https://openweathermap.org/img/wn/${newWeatherData.weather[0].icon}@2x.png`
+    );
     humidity.innerHTML = `${newWeatherData.main.humidity}`;
-    pressure.innerHTML = `${(newWeatherData.main.pressure /1013.25).toFixed(3)}`
-     radar.src = ""
-     setTimeout(() => {
-       radar.src = `https://embed.windy.com/embed2.html?lat=${newWeatherData.coord.lat}&lon=${newWeatherData.coord.lon}&zoom=5&level=surface&overlay=radar&menu=&message=true&type=map&location=coordinates&detail=&detailLat=${newWeatherData.coord.lat}&detailLon=${newWeatherData.coord.lon}&metricWind=default&metricTemp=default&radarRange=-1` 
-     }, 100)
-    console.log(newWeatherData)
-    console.log(newWeatherData.coord.lat)
+    pressure.innerHTML = `${(newWeatherData.main.pressure / 1013.25).toFixed(3)}`;
+    radar.src = `https://embed.windy.com/embed2.html?lat=${newWeatherData.coord.lat}&lon=${newWeatherData.coord.lon}&zoom=5&level=surface&overlay=radar&menu=&message=true&type=map&location=coordinates&detail=&detailLat=${newWeatherData.coord.lat}&detailLon=${newWeatherData.coord.lon}&metricWind=default&metricTemp=default&radarRange=-1`;
+
+    //console.log("✅ Weather data:", newWeatherData);
   } catch (e) {
-    console.log(e);
+    // console.log("❌ Error fetching weather:", e);
+    throw e
   }
 }
 
@@ -71,7 +86,6 @@ addCityBtn.addEventListener('click', () => {
   const cityInput = document.querySelector('#city_name');
   const messageBoxId = 'city-error-message';
   const weatherContainer = document.querySelector('#current_weather');
-  
   const existingMessage = document.getElementById(messageBoxId);
   if (existingMessage) {
     existingMessage.remove();
@@ -87,9 +101,12 @@ addCityBtn.addEventListener('click', () => {
     messageBox.style.fontSize = '14px';
     messageBox.style.fontWeight = '600';
     weatherContainer.prepend(messageBox);
-    console.log('Error: No city entered.');
+   // console.log('Error: No city entered.');
   } else {
     getNewWeather();
     document.querySelector('.new_city').style.display = 'none';
+    document.querySelector('#city_name').value = ''
   }
 });
+
+
